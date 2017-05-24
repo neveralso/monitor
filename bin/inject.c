@@ -50,28 +50,39 @@ void error(const char *fmt, ...)
 
     va_list args;
     va_start(args, fmt);
-    int ret = vsnprintf(buf, sizeof(buf), fmt, args);
-
-    DWORD errorMessageID = GetLastError();
-    if (errorMessageID != 0)
-    {
-        LPSTR messageBuffer = 0;
-        size_t size = FormatMessageA(
-            FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-            NULL,
-            errorMessageID,
-            MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-            (LPSTR)&messageBuffer,
-            0,
-            NULL);
-
-        vsnprintf(buf + ret, sizeof(buf) - ret, "%s", messageBuffer);
-        //Free the buffer.
-        LocalFree(messageBuffer);
-    }
+    vsnprintf(buf, sizeof(buf), fmt, args);
 
     MessageBox(NULL, buf, "inject error", 0);
     va_end(args);
+
+
+    LPVOID lpMsgBuf;
+    LPVOID lpDisplayBuf;
+    DWORD dw = GetLastError(); 
+
+    FormatMessage(
+        FORMAT_MESSAGE_ALLOCATE_BUFFER | 
+        FORMAT_MESSAGE_FROM_SYSTEM |
+        FORMAT_MESSAGE_IGNORE_INSERTS,
+        NULL,
+        dw,
+        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        (LPTSTR) &lpMsgBuf,
+        0, NULL );
+
+    // Display the error message and exit the process
+
+    lpDisplayBuf = (LPVOID)LocalAlloc(LMEM_ZEROINIT, 
+        (lstrlen((LPCTSTR)lpMsgBuf) + lstrlen((LPCTSTR)lpszFunction) + 40) * sizeof(TCHAR)); 
+    StringCchPrintf((LPTSTR)lpDisplayBuf, 
+        LocalSize(lpDisplayBuf) / sizeof(TCHAR),
+        TEXT("%s failed with error %d: %s. %s"), 
+        lpszFunction, dw, lpMsgBuf, buf); 
+    MessageBox(NULL, (LPCTSTR)lpDisplayBuf, TEXT("Error"), MB_OK); 
+
+    LocalFree(lpMsgBuf);
+    LocalFree(lpDisplayBuf);
+    ExitProcess(dw);
 
     exit(1);
 }
