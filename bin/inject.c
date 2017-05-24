@@ -24,6 +24,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <shlwapi.h>
 #include "../inc/ntapi.h"
 
+#include <strsafe.h>
+
 #define INJECT_NONE 0
 #define INJECT_CRT  1
 #define INJECT_APC  2
@@ -48,7 +50,26 @@ void error(const char *fmt, ...)
 
     va_list args;
     va_start(args, fmt);
-    vsnprintf(buf, sizeof(buf), fmt, args);
+    int ret = vsnprintf(buf, sizeof(buf), fmt, args);
+
+    DWORD errorMessageID = GetLastError();
+    if (errorMessageID != 0)
+    {
+        LPSTR messageBuffer = 0;
+        size_t size = FormatMessageA(
+            FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+            NULL,
+            errorMessageID,
+            MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+            (LPSTR)&messageBuffer,
+            0,
+            NULL);
+
+        vsnprintf(buf + ret, sizeof(buf) - ret, "%s", messageBuffer);
+        //Free the buffer.
+        LocalFree(messageBuffer);
+    }
+
     MessageBox(NULL, buf, "inject error", 0);
     va_end(args);
 
